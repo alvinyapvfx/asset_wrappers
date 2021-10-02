@@ -8,3 +8,9 @@ This is a python script meant for a Houdini Shelf. This is created to convert th
 
 How to install:
 Create a new shelf tool, edit the tool, then paste the code into the script tab. 
+
+### vs_lib.hdalc
+This is a HDA library with the following tools:
+
+VS KB3D Soviet Blocks:
+This is a HDA/wrapper that makes it easy to select one of the buildings for use inside Houdini, together with its material network properly setup.

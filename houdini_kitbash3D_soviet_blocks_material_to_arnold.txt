@@ -1,0 +1,132 @@
+import os
+baseTexturePath = "" 
+
+# Setup your base texture path above, else script assumes
+# the relative KB3DTextures folder relative to $HIP
+
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+#
+# The rest of the code below should not need to be modified.
+#
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+
+
+
+if len(baseTexturePath)==0:
+    hipName = hou.hipFile.basename()
+    basePath = hou.hipFile.path()
+    
+    baseTexturePath = basePath.replace(hipName, "") + "KB3DTextures/"
+
+# check if texture path exists, if it does not, exit.
+    
+if( os.path.exists(baseTexturePath) == False)    :
+    hou.ui.displayMessage("baseTexturePath " + baseTexturePath  + " does not exist, stopping execution.")
+    exit()
+
+# check the selected nodes next.
+    
+selectedNodes = hou.selectedNodes()
+
+if len(selectedNodes) == 0:
+    hou.ui.displayMessage("Please select a material network to convert.")
+    exit()
+    
+if len(selectedNodes) > 1:
+    hou.ui.displayMessage("More than one node selected, please select one material network to convert.")
+    exit()   
+
+
+# Setup paths to existing mantra material network 
+# and create material network for arnold materials.
+
+mantraNetwork = selectedNodes[0]
+baseObject = mantraNetwork.parent()   
+    
+# Check if the arnold material network exists. If yes, remove it.
+
+arnoldMaterialNetworkPath = baseObject.path() + "/matnet_arnold"
+
+checkIfExist = hou.node(arnoldMaterialNetworkPath)
+
+if checkIfExist is not None:
+ checkIfExist.destroy()
+
+# Create new material network
+
+arnoldNetwork = baseObject.createNode("matnet", "matnet_arnold")
+
+# iterate over each node in mantra network, and re-create arnold equivalent.
+# primary textures are basecolor, metallic, roughness, normal. 
+# height texture was included but probably for unity/ue.
+
+report_basecolor = ""
+report_metallic = ""
+report_roughness = ""
+report_normal = ""
+
+for o in mantraNetwork.children():
+    k = arnoldNetwork.createNode("arnold_materialbuilder",o.name()) 
+    material_output = k.children()[0]
+    standard_surface = k.createNode("arnold::standard_surface")
+    material_output.setInput(0,standard_surface,0)
+    
+    # connect basecolor
+    
+    basecolor = k.createNode("arnold::image", "basecolor")
+    standard_surface.setInput(1, basecolor, 0)
+    basecolorPath = baseTexturePath + o.name() + "_basecolor.png"
+    basecolor.parm("filename").set(basecolorPath)
+    
+    if( os.path.exists(basecolorPath ) == False):
+        report_basecolor += basecolorPath + " does not exist.\n"
+
+
+    # connect roughness
+    
+    roughness = k.createNode("arnold::image", "roughness")
+    standard_surface.setInput(6, roughness, 0)
+    roughnessPath = baseTexturePath + o.name() + "_roughness.png"
+    roughness.parm("filename").set(roughnessPath)
+    
+    if( os.path.exists(roughnessPath ) == False):
+        report_roughness += roughnessPath + " does not exist.\n"
+        
+        
+    # connect normal. 
+    
+    normal = k.createNode("arnold::image", "normal")
+    standard_surface.setInput(39, normal, 0)
+    normalPath = baseTexturePath + o.name() + "_normal.png"
+    normal.parm("filename").set(normalPath)
+    
+    if( os.path.exists(normalPath ) == False):
+        report_normal += normalPath + " does not exist.\n"
+        
+    # connect metallic: This only connects the image node if the texture exists on disk.
+    
+    metallicPath = baseTexturePath + o.name() + "_metallic.png"
+
+    if( os.path.exists(metallicPath) == True):
+        metallic = k.createNode("arnold::image", "metallic")
+        standard_surface.setInput(3, metallic, 0)
+        metallic.parm("filename").set(metallicPath)
+        
+# If there are any textures that do not exist on disk, this will print out which ones are missing.
+# Note that the metallic texture will not show up here as only found metallic textures will generate an image node.
+        
+if len(report_basecolor)>0:
+    print report_basecolor
+    print "\n"
+
+   
+if len(report_roughness)>0:
+    print report_roughness
+    print "\n"
+    
+if len(report_normal)>0:
+    print report_normal
+    print "\n"
+
+# report_metallic 
